@@ -1,4 +1,5 @@
 
+#include <asm/unistd_32.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/select.h>
@@ -28,6 +29,10 @@
 #define dup2(...)   syscall(SYS_dup2,   __VA_ARGS__)
 #endif
 
+#ifdef __i386__
+#undef SYS_select
+#define SYS_select SYS__newselect
+#endif
 
 void append(char *p, int x) {
     int i = x;
@@ -66,7 +71,7 @@ int main() {
             FD_SET(0, &fd_in);
             FD_SET(fdm, &fd_in);
 
-            rc = syscall(SYS_select, fdm + 1, &fd_in, 0, 0, 0);
+            rc = SYSCHK(syscall(SYS_select, fdm + 1, &fd_in, 0, 0, 0));
             if (rc == -1) exit(1);
             // If data on standard input
             if (FD_ISSET(0, &fd_in)) {
