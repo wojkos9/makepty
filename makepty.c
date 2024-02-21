@@ -34,7 +34,7 @@
 #define SYS_select SYS__newselect
 #endif
 
-void append(char *p, int x) {
+static inline void append(char *p, int x) {
     int i = x;
     do {
         ++p;
