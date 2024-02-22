@@ -45,19 +45,20 @@ static inline void append(char *p, int x) {
 	} while (x /= 10);
 }
 
-#define PTS_PATH "/dev/pts/"
-
 int main() {
+    char dev_buf[sizeof("/dev/ptmx") + 3] = "/dev/ptmx";
     int fdm, fds, rc, ptn;
     char input[150];
-    fdm = SYSCHK(open("/dev/ptmx", O_RDWR));
+    fdm = SYSCHK(open(dev_buf, O_RDWR));
 
     int unlock = 0;
     SYSCHK(ioctl(fdm, TIOCSPTLCK, &unlock));
 
-    char ptsname[sizeof(PTS_PATH) + 3] = PTS_PATH;
+    char *ptsname = dev_buf;
+    ptsname[7] = 's';
+    ptsname[8] = '/';
     ioctl(fdm, TIOCGPTN, &ptn);
-    append(ptsname + sizeof(PTS_PATH), ptn);
+    append(ptsname + sizeof("/dev/pts/"), ptn);
 
     fds = SYSCHK(open(ptsname, O_RDWR));
 
@@ -72,7 +73,6 @@ int main() {
             FD_SET(fdm, &fd_in);
 
             rc = SYSCHK(syscall(SYS_select, fdm + 1, &fd_in, 0, 0, 0));
-            if (rc == -1) exit(1);
             // If data on standard input
             if (FD_ISSET(0, &fd_in)) {
                 rc = read(0, input, sizeof(input));
@@ -80,7 +80,7 @@ int main() {
                     // Send data on the master side of PTY
                     write(fdm, input, rc);
                 } else if (rc < 0) {
-                    exit(1);
+                    break;
                 }
             }
 
@@ -91,20 +91,21 @@ int main() {
                     // Send data on standard output
                     write(1, input, rc);
                 } else if (rc < 0) {
-                    exit(1);
+                    break;
                 }
             }
         }
+        exit(0);
     } else {
         close(fdm);
-        dup2(fds, 0);
-        dup2(fds, 1);
-        dup2(fds, 2);
+        for (int i = 0; i < 3; i++) dup2(fds, i);
         close(fds);
 
         SYSCHK(syscall(SYS_setsid));
 
         SYSCHK(ioctl(0, TIOCSCTTY, 1));
-        SYSCHK(execve("/bin/sh", ((char *[]){"sh", 0}), 0));
+
+        char bin_sh[] = "/bin/sh";
+        SYSCHK(execve(bin_sh, ((char *[]){bin_sh, 0}), 0));
     }
 }

@@ -9,3 +9,4 @@ makepty-debug: makepty.c
 
 makepty-strip: makepty
 	sstrip $<
+	sed -i 's/\x00*$$//' $<
