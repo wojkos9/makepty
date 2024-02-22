@@ -1,32 +1,34 @@
-.PHONY: makepty makepty-debug elf.o code.c
+all: makepty-tiny
 
-all: code.bin
+.INTERMEDIATE: elf.out makepty-full
 
-elf.out: elf.o
-	ld -T linker.ld $^ -o $@
+makepty-tiny: elf.out makepty.bin
+	cat $^ > makepty && chmod +x makepty
 
-elf.o: elf.S elf_codesize.s
+elf.out: elf.o linker.ld
+	ld -T linker.ld $< -o $@
+
+elf.o: elf.S elf.h elf_codesize.s
 	gcc -c $<
 
-code.out: code.c
-	gcc $^ -o $@ -m32 -static -nostdlib -Wl,-e,main -ffreestanding -fno-builtin -Oz -fno-stack-protector
-
-elf_codesize.s: code.bin
-	echo ".set codesize, `stat -c %s $<`" > $@
-
-code.bin: makepty
+makepty.bin: makepty-full
 	objcopy -O binary -j .text $< $@
 
-code.elf: elf.out code.bin
-	cat $^ > $@ && chmod +x $@
+elf_codesize.s: makepty.bin
+	echo ".set codesize, `stat -c %s $<`" > $@
 
-makepty: makepty.c
+makepty-strip: makepty-full
+	sstrip $<
+	sed 's/\x00*$$//' $< > makepty
+
+makepty-full: makepty.c
 	clang $^ -o $@ -m32 -static -nostdlib -Wl,-e,main -ffreestanding -fno-stack-protector -Oz \
 		-Wl,-z,noseparate-code -fno-ident -fno-builtin -Wl,--build-id=none
 
-makepty-debug: makepty.c
-	gcc $^ -o $@ -m32 -DDEBUG -g
 
-makepty-strip: makepty
-	sstrip $<
-	sed -i 's/\x00*$$//' $<
+makepty-debug: makepty.c
+	gcc $^ -o makepty -m32 -DDEBUG -g
+
+
+clean:
+	-rm elf.o makepty makepty.bin elf_codesize.s

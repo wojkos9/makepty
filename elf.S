@@ -30,8 +30,4 @@ phdr:
 
 _start:
 .include "elf_codesize.s"
-// mov $42, %bl
-// xor %eax, %eax
-// inc %eax
-// int $0x80
 .equ fsz, . - .text + codesize

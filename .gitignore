@@ -1,2 +1,5 @@
 makepty
 .cache
+makepty.bin
+elf.o
+elf_codesize.s

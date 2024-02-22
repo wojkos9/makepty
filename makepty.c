@@ -45,26 +45,17 @@ static inline void append(char *p, int x) {
 	} while (x /= 10);
 }
 
-int main() {
+__attribute__ ((noreturn)) void main() {
     char dev_buf[sizeof("/dev/ptmx") + 3] = "/dev/ptmx";
-    int fdm, fds, rc, ptn;
+    int fdm, rc;
     char input[150];
     fdm = SYSCHK(open(dev_buf, O_RDWR));
 
     int unlock = 0;
     SYSCHK(ioctl(fdm, TIOCSPTLCK, &unlock));
 
-    char *ptsname = dev_buf;
-    ptsname[7] = 's';
-    ptsname[8] = '/';
-    ioctl(fdm, TIOCGPTN, &ptn);
-    append(ptsname + sizeof("/dev/pts/"), ptn);
-
-    fds = SYSCHK(open(ptsname, O_RDWR));
-
     if (syscall(SYS_fork)) {
         fd_set fd_in;
-        close(fds);
 
         while (1) {
             FD_ZERO(&fd_in);
@@ -97,7 +88,15 @@ int main() {
         }
         exit(0);
     } else {
+        int fds, ptn;
+        char *ptsname = dev_buf;
+        ptsname[7] = 's';
+        ptsname[8] = '/';
+        ioctl(fdm, TIOCGPTN, &ptn);
         close(fdm);
+
+        append(ptsname + sizeof("/dev/pts/"), ptn);
+        fds = SYSCHK(open(ptsname, O_RDWR));
         for (int i = 0; i < 3; i++) dup2(fds, i);
         close(fds);
 
